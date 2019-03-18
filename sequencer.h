@@ -42,6 +42,7 @@ struct replay_opts {
 	int verbose;
 	int quiet;
 	int reschedule_failed_exec;
+	int mainline_auto;
 
 	int mainline;
 

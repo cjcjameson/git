@@ -8,7 +8,7 @@ git-cherry-pick - Apply the changes introduced by some existing commits
 SYNOPSIS
 --------
 [verse]
-'git cherry-pick' [--edit] [-n] [-m parent-number] [-s] [-x] [--ff]
+'git cherry-pick' [--edit] [-n] [-a] [-m parent-number] [-s] [-x] [--ff]
 		  [-S[<keyid>]] <commit>...
 'git cherry-pick' --continue
 'git cherry-pick' --quit
@@ -83,6 +83,17 @@ OPTIONS
 	option specifies the parent number (starting from 1) of
 	the mainline and allows cherry-pick to replay the change
 	relative to the specified parent.
+
+-a::
+--mainline-auto::
+	Usually you cannot cherry-pick a merge because you do not know which
+	side of the merge should be considered the mainline.  This
+	option will do the cherry-pick if one (and only one) merge parent
+	is not a merge. If both `-a` and `-m <number>` are specified,
+	`--mainline` takes precedence. Using this option can be useful
+	when the branch from which you are cherry-picking typically only
+	gets new commits merged in as merge commits, whether dictated
+	by contributor guidelines or enforced by a git hosting service.
 
 -n::
 --no-commit::

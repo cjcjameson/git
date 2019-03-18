@@ -1778,21 +1778,44 @@ static int do_pick_commit(struct repository *r,
 		parent = NULL;
 	else if (commit->parents->next) {
 		/* Reverting or cherry-picking a merge commit */
-		int cnt;
 		struct commit_list *p;
 
-		if (!opts->mainline)
-			return error(_("commit %s is a merge but no -m option was given."),
+		if (!opts->mainline && !opts->mainline_auto)
+			return error(_("commit %s is a merge; needs mainline parent option"),
 				oid_to_hex(&commit->object.oid));
 
-		for (cnt = 1, p = commit->parents;
-		     cnt != opts->mainline && p;
-		     cnt++)
-			p = p->next;
-		if (cnt != opts->mainline || !p)
-			return error(_("commit %s does not have parent %d"),
-				oid_to_hex(&commit->object.oid), opts->mainline);
-		parent = p->item;
+		p = commit->parents;
+
+		if (opts->mainline) {
+			int cnt;
+			for (cnt = 1; cnt != opts->mainline && p; cnt++)
+				p = p->next;
+			if (cnt != opts->mainline || !p)
+				return error(_("commit %s does not have parent %d"),
+					oid_to_hex(&commit->object.oid), opts->mainline);
+			parent = p->item;
+		} else {
+			/*
+			 * attempting to auto-select merge parent if there is
+			 * specifically one non-merge parent
+			 */
+			struct commit *tentative_parent;
+
+			tentative_parent = p->item;
+
+			if (!tentative_parent->parents || !tentative_parent->parents->next)
+				parent = tentative_parent;
+			while (p->next) {
+				p = p->next;
+				tentative_parent = p->item;
+				if (parent && !(tentative_parent->parents && tentative_parent->parents->next))
+					return error(_("cannot auto-select; specify non-merge parent with -m option"));
+				if (!tentative_parent->parents->next)
+					parent = p->item;
+			}
+			if (!parent)
+				return error(_("cannot auto-select; all parents are merges"));
+		}
 	} else if (1 < opts->mainline)
 		/*
 		 *  Non-first parent explicitly specified as mainline for
@@ -2314,6 +2337,8 @@ static int populate_opts_cb(const char *key, const char *value, void *data)
 		opts->record_origin = git_config_bool_or_int(key, value, &error_flag);
 	else if (!strcmp(key, "options.allow-ff"))
 		opts->allow_ff = git_config_bool_or_int(key, value, &error_flag);
+	else if (!strcmp(key, "options.mainline-auto"))
+		opts->allow_ff = git_config_bool_or_int(key, value, &error_flag);
 	else if (!strcmp(key, "options.mainline"))
 		opts->mainline = git_config_int(key, value);
 	else if (!strcmp(key, "options.strategy"))
@@ -2710,6 +2735,8 @@ static int save_opts(struct replay_opts *opts)
 		res |= git_config_set_in_file_gently(opts_file, "options.record-origin", "true");
 	if (opts->allow_ff)
 		res |= git_config_set_in_file_gently(opts_file, "options.allow-ff", "true");
+	if (opts->mainline_auto)
+		res |= git_config_set_in_file_gently(opts_file, "options.mainline-auto", "true");
 	if (opts->mainline) {
 		struct strbuf buf = STRBUF_INIT;
 		strbuf_addf(&buf, "%d", opts->mainline);
